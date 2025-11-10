@@ -4,7 +4,10 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 
 
-
+/**
+ * Модель данных, представляющая товар в каталоге.
+ * Каждый товар имеет уникальный, автоматически генерируемый ID.
+ */
 public class Product {
     private static final AtomicLong idGenerator = new AtomicLong(0);
 
@@ -13,6 +16,12 @@ public class Product {
     private String brand;
     private int price;
 
+    /**
+     * Создает новый экземпляр товара с уникальным ID.
+     * @param category категория товара.
+     * @param brand    бренд товара.
+     * @param price    цена товара.
+     */
     public Product(String category, String brand, int price) {
         this.id = idGenerator.incrementAndGet();
         this.category = category;
