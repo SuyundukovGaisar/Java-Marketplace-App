@@ -1,5 +1,7 @@
 package ru.marketplace.catalog.service.impl;
 
+import ru.marketplace.catalog.aop.annotations.Auditable;
+import ru.marketplace.catalog.aop.annotations.Loggable;
 import ru.marketplace.catalog.exception.RepositoryException;
 import ru.marketplace.catalog.model.User;
 import ru.marketplace.catalog.repository.UserRepository;
@@ -27,6 +29,8 @@ public class UserServiceImpl implements UserService {
      * @return true, если регистрация успешна, false, если пользователь уже существует или произошла ошибка БД.
      */
     @Override
+    @Loggable
+    @Auditable(action = "REGISTER_USER")
     public boolean registerUser(String login, String password) {
         try {
             if (userRepository.existsByLogin(login)) {
@@ -52,6 +56,8 @@ public class UserServiceImpl implements UserService {
      * @return Optional с пользователем, если логин и пароль верны.
      */
     @Override
+    @Loggable
+    @Auditable(action = "LOGIN_USER")
     public Optional<User> loginUser(String login, String password) {
         try {
             Optional<User> userOpt = userRepository.findByLogin(login);

@@ -12,6 +12,9 @@ public class Product {
     private String brand;
     private int price;
 
+    public Product() {
+    }
+
     public Product(String category, String brand, int price) {
         this.category = category;
         this.brand = brand;

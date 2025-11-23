@@ -1,5 +1,7 @@
 package ru.marketplace.catalog.service.impl;
 
+import ru.marketplace.catalog.aop.annotations.Auditable;
+import ru.marketplace.catalog.aop.annotations.Loggable;
 import ru.marketplace.catalog.exception.RepositoryException;
 import ru.marketplace.catalog.model.Product;
 import ru.marketplace.catalog.repository.ProductRepository;
@@ -26,6 +28,8 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Loggable
+    @Auditable(action = "ADD_PRODUCT")
     public void addProduct(Product product) {
         try {
             productRepository.save(product);
@@ -37,6 +41,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Loggable
     public List<Product> getAllProducts() {
         try {
             return productRepository.findAll();
@@ -59,8 +64,9 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Loggable
+    @Auditable(action = "UPDATE_PRODUCT")
     public boolean updateProduct(long id, String newCategory, String newBrand, int newPrice) {
-        // Здесь мы используем this.findById, который уже обрабатывает исключение внутри себя
         Optional<Product> productOpt = findById(id);
 
         if (productOpt.isPresent()) {
@@ -83,6 +89,8 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Loggable
+    @Auditable(action = "DELETE_PRODUCT")
     public boolean deleteProduct(long id) {
         try {
             if (productRepository.deleteById(id)) {
