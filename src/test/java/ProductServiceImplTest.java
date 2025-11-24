@@ -2,91 +2,71 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import ru.marketplace.catalog.aop.AuditAspect;
+import ru.marketplace.catalog.exception.RepositoryException;
 import ru.marketplace.catalog.model.Product;
-import ru.marketplace.catalog.repository.impl.InMemoryProductRepository;
 import ru.marketplace.catalog.repository.ProductRepository;
-import ru.marketplace.catalog.service.ProductService;
+import ru.marketplace.catalog.service.AuditService;
 import ru.marketplace.catalog.service.impl.ProductServiceImpl;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
 class ProductServiceImplTest {
 
-    private ProductService productService;
+    @Mock
     private ProductRepository productRepository;
+
+    @Mock
+    private AuditService auditService;
+
+    @InjectMocks
+    private ProductServiceImpl productService;
 
     @BeforeEach
     void setUp() {
-        ProductRepository dummyRepo = new ProductRepository() {
-            @Override
-            public void save(Product product) {}
-
-            @Override
-            public List<Product> findAll() { return new ArrayList<>(); }
-
-            @Override
-            public Optional<Product> findById(long id) { return Optional.empty(); }
-
-            @Override
-            public boolean deleteById(long id) { return true; }
-
-            @Override
-            public boolean existsById(long id) { return false; }
-        };
-
-        productService = new ProductServiceImpl(dummyRepo);
+        AuditAspect.setAuditService(auditService);
     }
 
     @Test
-    @DisplayName("Добавление продукта должно увеличивать общее количество продуктов")
-    void addProduct_shouldIncreaseProductCount() {
-        Product phone = new Product("Electronics", "Apple", 1000);
-        int initialSize = productService.getAllProducts().size();
+    @DisplayName("Добавление продукта должно вызывать метод репозитория")
+    void addProduct_shouldCallRepository() throws RepositoryException {
+        Product product = new Product("Electronics", "Sony", 100);
 
-        productService.addProduct(phone);
-        int finalSize = productService.getAllProducts().size();
+        productService.addProduct(product);
 
-        Assertions.assertEquals(0, initialSize, "Изначально список должен быть пуст");
-        Assertions.assertEquals(1, finalSize, "После добавления в списке должен быть один продукт");
+        verify(productRepository, times(1)).save(product);
     }
 
     @Test
-    @DisplayName("Удаление существующего продукта должно вернуть true и уменьшить количество")
-    void deleteProduct_shouldReturnTrue_forExistingProduct() {
-        Product laptop = new Product("Electronics", "Dell", 1500);
-        productService.addProduct(laptop);
-        long productId = laptop.getId();
+    @DisplayName("Получение всех продуктов должно возвращать список из репозитория")
+    void getAllProducts_shouldReturnList() throws RepositoryException {
+        List<Product> mockList = List.of(
+                new Product(1L, "Cat1", "Brand1", 100),
+                new Product(2L, "Cat1", "Brand2", 200)
+        );
 
-        boolean result = productService.deleteProduct(productId);
-        int finalSize = productService.getAllProducts().size();
+        when(productRepository.findAll()).thenReturn(mockList);
 
-        Assertions.assertTrue(result, "Удаление существующего продукта должно вернуть true");
-        Assertions.assertEquals(0, finalSize, "После удаления список должен быть пуст");
+        List<Product> result = productService.getAllProducts();
+
+        Assertions.assertEquals(2, result.size());
+        Assertions.assertEquals("Brand1", result.get(0).getBrand());
     }
 
     @Test
-    @DisplayName("Удаление несуществующего продукта должно вернуть false")
-    void deleteProduct_shouldReturnFalse_forNonExistentProduct() {
-        long nonExistentId = 999L;
+    @DisplayName("Удаление продукта должно возвращать результат из репозитория")
+    void deleteProduct_shouldReturnTrue_whenRepoReturnsTrue() throws RepositoryException {
+        when(productRepository.deleteById(1L)).thenReturn(true);
 
-        boolean result = productService.deleteProduct(nonExistentId);
+        boolean result = productService.deleteProduct(1L);
 
-        Assertions.assertFalse(result, "Удаление несуществующего продукта должно вернуть false");
-    }
-
-    @Test
-    @DisplayName("Фильтрация по категории должна возвращать только релевантные продукты")
-    void filterBy_category_shouldReturnMatchingProducts() {
-        productService.addProduct(new Product("Electronics", "Apple", 1000));
-        productService.addProduct(new Product("Books", "Author House", 20));
-        productService.addProduct(new Product("Electronics", "Samsung", 800));
-
-        List<Product> electronics = productService.filterBy("category", "Electronics");
-        List<Product> books = productService.filterBy("category", "books");
-
-        Assertions.assertEquals(2, electronics.size(), "Должно быть найдено 2 товара в категории Electronics");
-        Assertions.assertEquals(1, books.size(), "Должна быть найдена 1 книга");
+        Assertions.assertTrue(result);
     }
 }

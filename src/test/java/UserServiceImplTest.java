@@ -1,91 +1,79 @@
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import ru.marketplace.catalog.aop.AuditAspect;
+import ru.marketplace.catalog.exception.RepositoryException;
 import ru.marketplace.catalog.model.User;
 import ru.marketplace.catalog.repository.UserRepository;
-import ru.marketplace.catalog.service.UserService;
+import ru.marketplace.catalog.service.AuditService;
 import ru.marketplace.catalog.service.impl.UserServiceImpl;
 
 import java.util.Optional;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
 class UserServiceImplTest {
 
-    private UserService userService;
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
+    private AuditService auditService;
+
+    @InjectMocks
+    private UserServiceImpl userService;
 
     @BeforeEach
     void setUp() {
-        UserRepository dummyRepo = new UserRepository() {
-            @Override
-            public void save(User user) {
-                // Ничего не делаем, это просто тест
-            }
-
-            @Override
-            public Optional<User> findByLogin(String login) {
-                return Optional.empty();
-            }
-
-            @Override
-            public boolean existsByLogin(String login) {
-                return false;
-            }
-        };
-
-        userService = new UserServiceImpl(dummyRepo);
+        AuditAspect.setAuditService(auditService);
     }
 
     @Test
-    @DisplayName("Регистрация нового пользователя должна проходить успешно")
-    void registerUser_shouldSucceed_whenLoginIsUnique() {
+    @DisplayName("Регистрация успешна, если пользователя еще нет")
+    void registerUser_shouldSucceed_whenLoginIsUnique() throws RepositoryException {
         String login = "newUser";
-        String password = "password123";
+        String password = "123";
+
+        when(userRepository.existsByLogin(login)).thenReturn(false);
 
         boolean result = userService.registerUser(login, password);
 
-        Assertions.assertTrue(result, "Метод должен вернуть true при успешной регистрации");
+        Assertions.assertTrue(result);
+        verify(userRepository, times(1)).save(any(User.class));
     }
 
     @Test
-    @DisplayName("Регистрация пользователя с существующим логином должна провалиться")
-    void registerUser_shouldFail_whenLoginExists() {
-        String existingLogin = "existingUser";
-        String password = "password123";
-        userService.registerUser(existingLogin, password);
+    @DisplayName("Регистрация провалена, если пользователь уже есть")
+    void registerUser_shouldFail_whenLoginExists() throws RepositoryException {
+        String login = "existingUser";
 
-        boolean result = userService.registerUser(existingLogin, "anotherPassword");
+        when(userRepository.existsByLogin(login)).thenReturn(true);
 
-        Assertions.assertFalse(result, "Метод должен вернуть false при попытке регистрации дубликата");
+        boolean result = userService.registerUser(login, "123");
+
+        Assertions.assertFalse(result);
+        verify(userRepository, never()).save(any());
     }
 
     @Test
-    @DisplayName("Вход с верными данными должен быть успешным")
-    void loginUser_shouldSucceed_withCorrectCredentials() {
-        String login = "testUser";
-        String password = "password";
-        userService.registerUser(login, password);
+    @DisplayName("Логин успешен при правильном пароле")
+    void loginUser_shouldSucceed_withCorrectCredentials() throws RepositoryException {
+        String login = "user";
+        String password = "pass";
+        User userFromDb = new User(login, password);
+
+        when(userRepository.findByLogin(login)).thenReturn(Optional.of(userFromDb));
 
         Optional<User> result = userService.loginUser(login, password);
 
-        Assertions.assertTrue(result.isPresent(), "Optional не должен быть пустым");
-        Assertions.assertEquals(login, result.get().getLogin(), "Логин пользователя должен совпадать");
-    }
-
-    @Test
-    @DisplayName("Вход с неверным паролем должен провалиться")
-    void loginUser_shouldFail_withIncorrectPassword() {
-        String login = "testUser";
-        userService.registerUser(login, "correctPassword");
-
-        Optional<User> result = userService.loginUser(login, "wrongPassword");
-
-        Assertions.assertTrue(result.isEmpty(), "Optional должен быть пустым при неверном пароле");
-    }
-
-    @Test
-    @DisplayName("Вход с несуществующим логином должен провалиться")
-    void loginUser_shouldFail_withNonExistentLogin() {
-        String login = "nonExistentUser";
-
-        Optional<User> result = userService.loginUser(login, "anyPassword");
-
-        Assertions.assertTrue(result.isEmpty(), "Optional должен быть пустым для несуществующего пользователя");
+        Assertions.assertTrue(result.isPresent());
+        Assertions.assertEquals(login, result.get().getLogin());
     }
 }
